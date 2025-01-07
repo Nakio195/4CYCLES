@@ -20,7 +20,6 @@ Phaserunner::Phaserunner(uint8_t slaveID)
 		Serial.print(", pending "); Serial.println(r.pendingWrite);
 	}
 
-	instantRequest(509, 0);
 	setControlSource(0);
 	setCurrentsLimits(100.0, 100.0);
 	setSpeedRegulatorMode(2);
@@ -39,14 +38,12 @@ void Phaserunner::stopMotor()
 	setRemoteState(1);
 }
 
-
 void Phaserunner::process()
 {
-	// Send all non critical pending write request
-
+	// Send all pending write request
 	std::vector<Register> pendingRegisters;
-
 	bool needTransmit = false;
+
 	for(auto& r : mRegisters->map)
 	{
 		if(r.pendingWrite)
@@ -60,6 +57,27 @@ void Phaserunner::process()
 	if(needTransmit)
 	{
 		ModbusPacket* request = new ModbusPacket(mConnection.slaveID, ModbusPacket::Write);
+		request->registers = pendingRegisters;
+		ModbusHandler->request(request);
+	}
+
+	//Send all pending read request
+	pendingRegisters.clear();
+	needTransmit = false;
+
+	for(auto& r : mRegisters->map)
+	{
+		if(r.pendingRead)
+		{
+			pendingRegisters.push_back(r);
+			r.pendingRead = false;
+			needTransmit = true;
+		}
+	}
+
+	if(needTransmit)
+	{
+		ModbusPacket* request = new ModbusPacket(mConnection.slaveID, ModbusPacket::Read);
 		request->registers = pendingRegisters;
 		ModbusHandler->request(request);
 	}
@@ -103,12 +121,31 @@ bool Phaserunner::instantRequest(uint8_t add, uint16_t val)
 {
 	ModbusPacket* packet = new ModbusPacket(mConnection.slaveID, ModbusPacket::Write);
 	packet->push(Register(add, 0, val));
-	ModbusHandler->request(packet);
+	return ModbusHandler->request(packet);
 }
 
 bool Phaserunner::readAllParameters()
 {
 	return true;
+}
+
+
+void Phaserunner::readMotorFaults()
+{
+	/*
+	 *  @258
+	 *  Faults register
+	 */
+	mRegisters->read(258);
+}
+
+void Phaserunner::readControllerFaults()
+{
+	/*
+	 *  @299
+	 *  Faults register
+	 */
+	mRegisters->read(299);
 }
 
 bool Phaserunner::setControlSource(uint8_t source)

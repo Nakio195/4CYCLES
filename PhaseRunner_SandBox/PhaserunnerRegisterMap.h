@@ -21,24 +21,103 @@
 
 #ifndef USE_REGISTER_NAME
 
+struct ControllerFaults
+{
+	// @299
+	bool CurrentScaling;
+	bool VoltageScaling;
+	bool HeadlightUndervoltage;
+	bool CANbus;
+	bool HallStall;
+	bool DynTorqueSensorVoltageOutOfRange;
+	bool DynTorqueSensorStaticVoltageFault;
+	bool RemoteCANfault;
+	bool OpenPhaseFault;
+	bool AnalogBrakeVoltageOutOfRange;
+
+	void set(uint16_t faults)
+	{
+		CurrentScaling = faults & 1 << 1;
+		VoltageScaling = faults & 1 << 2;
+		HeadlightUndervoltage = faults & 1 << 3;
+		CANbus = faults & 1 << 5;
+		HallStall = faults & 1 << 6;
+		DynTorqueSensorVoltageOutOfRange = faults & 1 << 10;
+		DynTorqueSensorStaticVoltageFault = faults & 1 << 11;
+		RemoteCANfault = faults & 1 << 12;
+		OpenPhaseFault = faults & 1 << 14;
+		AnalogBrakeVoltageOutOfRange = faults & 1 << 15;
+	}
+
+	bool ready()
+	{
+		return CurrentScaling || VoltageScaling || HeadlightUndervoltage || CANbus || HallStall || DynTorqueSensorVoltageOutOfRange || DynTorqueSensorStaticVoltageFault || RemoteCANfault || OpenPhaseFault || AnalogBrakeVoltageOutOfRange;
+	}
+};
+
+
+struct MotorFaults
+{
+	//@258
+
+	bool ControllerOverVoltage;
+	bool FilteredPhaseOverCurrent;
+	bool BadCurrentSensorCalibration;
+	bool CurrentSensorOvCurrent;
+	bool CurrentSensorOvTemp;
+	bool MotorHallSensorFault;
+	bool ControllerUnderVoltage;
+	bool NetworkCommTimeout;
+	bool InstantPhaseOvCurrent;
+	bool MotorOvTemp;
+	bool ThrottleOvVoltage;
+	bool InstantControllerOvVoltage;
+	bool InternalError;
+	bool InstantControllerUndVoltage;
+
+	void set(uint16_t faults)
+	{
+		ControllerOverVoltage = faults & 1 << 0;
+		FilteredPhaseOverCurrent = faults & 1 << 1;
+		BadCurrentSensorCalibration = faults & 1 << 2;
+		CurrentSensorOvCurrent = faults & 1 << 3;
+		CurrentSensorOvTemp = faults & 1 << 4;
+		MotorHallSensorFault = faults & 1 << 5;
+		ControllerUnderVoltage = faults & 1 << 6;
+		NetworkCommTimeout = faults & 1 << 8;
+		InstantPhaseOvCurrent = faults & 1 << 9;
+		MotorOvTemp = faults & 1 << 10;
+		ThrottleOvVoltage = faults & 1 << 11;
+		InstantControllerOvVoltage = faults & 1 << 12;
+		InternalError = faults & 1 << 13;
+		InstantControllerUndVoltage = faults & 1 << 15;
+	}
+
+	bool ready()
+	{
+		return ControllerOverVoltage || FilteredPhaseOverCurrent || BadCurrentSensorCalibration || CurrentSensorOvCurrent || CurrentSensorOvTemp || MotorHallSensorFault || ControllerUnderVoltage || NetworkCommTimeout || InstantPhaseOvCurrent || MotorOvTemp || ThrottleOvVoltage || InstantControllerOvVoltage || InternalError || InstantControllerUndVoltage;
+	}
+};
+
 struct Register
 {
-	Register(uint16_t add = 0, float sca = 0, float val = 0, bool pend = false)
+	Register(uint16_t add = 0, float sca = 0, float val = 0)
 	{
 		address = add;
 		scale = sca;
 		value = val;
-		pendingWrite = pend;
+		pendingWrite = false;
+		pendingRead = false;
 	}
 
 	uint16_t address;
 	float scale;
 	float value;
 	bool pendingWrite;
+	bool pendingRead;
 };
 
 //Uncomment the needed registers to save memory and update array size
-
 
 struct Registers
 {
@@ -51,6 +130,18 @@ struct Registers
 				r.value = value;
 				r.pendingWrite = true;
 
+				return;
+			}
+		}
+	}
+
+	void read(uint16_t addr)
+	{
+		for(auto& r : map)
+		{
+			if(r.address == addr)
+			{
+				r.pendingRead = true;
 				return;
 			}
 		}
@@ -343,7 +434,7 @@ struct Registers
 //			{255, 1},
 //			{256, 1000},
 //			{257, 0},
-//			{258, 0},
+			{258, 0}, // faults1
 //			{259, 1},
 //			{260, 256},
 //			{261, 1},
@@ -384,7 +475,7 @@ struct Registers
 //			{296, 4096},
 //			{297, 4096},
 //			{298, 40.96},
-//			{299, 0},
+			{299, 0}, // faults2
 //			{300, 4096},
 //			{301, 4096},
 //			{302, 4096},

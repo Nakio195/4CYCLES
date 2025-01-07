@@ -44,9 +44,12 @@ class Phaserunner
 
 		bool instantRequest(uint8_t add, uint16_t val);
 
+		void readMotorFaults();
+		void readControllerFaults();
+
+		void heartbeat();
 
 	private:
-		void heartbeat();
 		ConnectionParameters mConnection;
 		Registers *mRegisters;
 };
