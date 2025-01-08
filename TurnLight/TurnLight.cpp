@@ -19,7 +19,7 @@ void setup()
 	pixels.begin();
 
 	mPixels[0] = new AnimatedPixel(0, 5, pixels.Color(255, 100, 0), AnimatedPixel::FadeOut, true, 666);
-	mPixels[1] = new AnimatedPixel(5, 40, pixels.Color(255, 255, 255), AnimatedPixel::Static);
+	mPixels[1] = new AnimatedPixel(5, 40, pixels.Color(255, 200, 200), AnimatedPixel::Static);
 	mPixels[2] = new AnimatedPixel(45, 5, pixels.Color(255, 75, 0), AnimatedPixel::Swing, true, 333);
 	mPixels[0]->start();
 	mPixels[1]->start();

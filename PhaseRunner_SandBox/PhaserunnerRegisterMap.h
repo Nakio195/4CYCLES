@@ -24,30 +24,21 @@
 struct ControllerFaults
 {
 	// @299
-	bool CurrentScaling;
-	bool VoltageScaling;
-	bool HeadlightUndervoltage;
-	bool CANbus;
-	bool HallStall;
-	bool DynTorqueSensorVoltageOutOfRange;
-	bool DynTorqueSensorStaticVoltageFault;
-	bool RemoteCANfault;
-	bool OpenPhaseFault;
-	bool AnalogBrakeVoltageOutOfRange;
+	uint16_t faults = 0;
 
-	void set(uint16_t faults)
+	enum
 	{
-		CurrentScaling = faults & 1 << 1;
-		VoltageScaling = faults & 1 << 2;
-		HeadlightUndervoltage = faults & 1 << 3;
-		CANbus = faults & 1 << 5;
-		HallStall = faults & 1 << 6;
-		DynTorqueSensorVoltageOutOfRange = faults & 1 << 10;
-		DynTorqueSensorStaticVoltageFault = faults & 1 << 11;
-		RemoteCANfault = faults & 1 << 12;
-		OpenPhaseFault = faults & 1 << 14;
-		AnalogBrakeVoltageOutOfRange = faults & 1 << 15;
-	}
+		CurrentScaling = 1 << 1,
+		VoltageScaling = 1 << 2,
+		HeadlightUndervoltage = 1 << 3,
+		CANbus = 1 << 5,
+		HallStall = 1 << 6,
+		DynTorqueSensorVoltageOutOfRange = 1 << 10,
+		DynTorqueSensorStaticVoltageFault = 1 << 11,
+		RemoteCANfault = 1 << 12,
+		OpenPhaseFault = 1 << 14,
+		AnalogBrakeVoltageOutOfRange = 1 << 15,
+	};
 
 	bool ready()
 	{
@@ -59,39 +50,25 @@ struct ControllerFaults
 struct MotorFaults
 {
 	//@258
+	uint16_t faults = 0;
 
-	bool ControllerOverVoltage;
-	bool FilteredPhaseOverCurrent;
-	bool BadCurrentSensorCalibration;
-	bool CurrentSensorOvCurrent;
-	bool CurrentSensorOvTemp;
-	bool MotorHallSensorFault;
-	bool ControllerUnderVoltage;
-	bool NetworkCommTimeout;
-	bool InstantPhaseOvCurrent;
-	bool MotorOvTemp;
-	bool ThrottleOvVoltage;
-	bool InstantControllerOvVoltage;
-	bool InternalError;
-	bool InstantControllerUndVoltage;
-
-	void set(uint16_t faults)
+	enum
 	{
-		ControllerOverVoltage = faults & 1 << 0;
-		FilteredPhaseOverCurrent = faults & 1 << 1;
-		BadCurrentSensorCalibration = faults & 1 << 2;
-		CurrentSensorOvCurrent = faults & 1 << 3;
-		CurrentSensorOvTemp = faults & 1 << 4;
-		MotorHallSensorFault = faults & 1 << 5;
-		ControllerUnderVoltage = faults & 1 << 6;
-		NetworkCommTimeout = faults & 1 << 8;
-		InstantPhaseOvCurrent = faults & 1 << 9;
-		MotorOvTemp = faults & 1 << 10;
-		ThrottleOvVoltage = faults & 1 << 11;
-		InstantControllerOvVoltage = faults & 1 << 12;
-		InternalError = faults & 1 << 13;
-		InstantControllerUndVoltage = faults & 1 << 15;
-	}
+		ControllerOverVoltage = 1 << 0,
+		FilteredPhaseOverCurrent = 1 << 1,
+		BadCurrentSensorCalibration = 1 << 2,
+		CurrentSensorOvCurrent = 1 << 3,
+		CurrentSensorOvTemp = 1 << 4,
+		MotorHallSensorFault = 1 << 5,
+		ControllerUnderVoltage = 1 << 6,
+		NetworkCommTimeout = 1 << 8,
+		InstantPhaseOvCurrent = 1 << 9,
+		MotorOvTemp = 1 << 10,
+		ThrottleOvVoltage = 1 << 11,
+		InstantControllerOvVoltage = 1 << 12,
+		InternalError = 1 << 13,
+		InstantControllerUndVoltage = 1 << 15
+	};
 
 	bool ready()
 	{
@@ -208,7 +185,7 @@ struct Registers
 //			{29, 1},
 //			{30, 1},
 //			{31, 4096},
-//			{32, 1},
+			{32, 1},
 //			{33, 40.96},
 //			{34, 1},
 //			{35, 1},
@@ -225,7 +202,7 @@ struct Registers
 //			{46, 1},
 //			{47, 4096},
 //			{48, 4096},
-//			{49, 1},
+			{49, 1},
 //			{50, 4096},
 //			{51, 1},
 //			{52, 1},
@@ -684,7 +661,7 @@ struct Registers
 //			{505, 4096},
 //			{506, 1},
 //			{507, 1},
-//			{508, 1},
+			{508, 1},
 			{509, 0},
 //			{510, 0},
 //			{511, 0}

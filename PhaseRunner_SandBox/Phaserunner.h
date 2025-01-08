@@ -13,6 +13,10 @@
 #include "ModbusDriver.h"
 #include "PhaserunnerRegisterMap.h"
 
+#include "Timer.h"
+
+#define HeartBeat_Rate 100
+
 extern ModbusDriver* ModbusHandler;
 
 class Phaserunner
@@ -27,20 +31,34 @@ class Phaserunner
 			//Timer hearthBeat;
 		};
 
+		//Phaserunner main loop
 		void process();
+		// Phaserunner time tick
+		void tick(unsigned long dt);
+
+		// Methods
 		void startMotor();
 		void stopMotor();
-		bool setSpeedCommand(float speed);
+		void setSpeed(float speed);
+
+		MotorFaults getMotorFaults();
+		ControllerFaults getControllerFaults();
+		void clearFaults();
 
 	private:
 
 		bool readAllParameters();
 
+		bool setCommunicationTimeout(uint16_t timeout);
+
+		bool setRemoteState(uint8_t state);
 		bool setControlSource(uint8_t source);
 		bool setSpeedRegulatorMode(uint8_t mode);
+
 		bool setCurrentsLimits(float motor, float brake);
-		bool setRemoteState(uint8_t state);
+		bool setSpeedCommand(float speed);
 		bool setTorqueCommand(float torque);
+		bool setRemoteThottleVoltage(uint16_t voltage);
 
 		bool instantRequest(uint8_t add, uint16_t val);
 
@@ -50,8 +68,24 @@ class Phaserunner
 		void heartbeat();
 
 	private:
+
+		struct MotorCommands
+		{
+			float MotoringCurrentLimit;
+			float BrakingCurrentLimit;
+			float Speed;
+			float Torque;
+			uint8_t State;
+		};
+
+		Timer TimerHeartbeat;
+
 		ConnectionParameters mConnection;
 		Registers *mRegisters;
+
+		MotorCommands mMotorCommands;
+		MotorFaults mMotorFaults;
+		ControllerFaults mControllerFaults;
 };
 
 #endif /* UTILITIES_SRC_PHASERUNNER_H_ */

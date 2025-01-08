@@ -12,18 +12,17 @@ Phaserunner::Phaserunner(uint8_t slaveID)
 	mConnection.slaveID = slaveID;
 	mRegisters = new Registers;
 
-	for(const auto& r : mRegisters->map)
-	{
-		Serial.print('@'); Serial.print(r.address);
-		Serial.print(", scale "); Serial.print(r.scale);
-		Serial.print(", value "); Serial.print(r.value);
-		Serial.print(", pending "); Serial.println(r.pendingWrite);
-	}
+	TimerHeartbeat.setMode(Timer::Continuous);
+	TimerHeartbeat.setPeriod(HeartBeat_Rate);
+	TimerHeartbeat.startTimer();
 
+	//Controller initialization
+	setCommunicationTimeout(5000);
 	setControlSource(0);
 	setCurrentsLimits(100.0, 100.0);
 	setSpeedRegulatorMode(2);
 	setTorqueCommand(50.0);
+	stopMotor();
 }
 
 void Phaserunner::startMotor()
@@ -31,15 +30,47 @@ void Phaserunner::startMotor()
 	setSpeedCommand(0);
 	setRemoteState(2);
 }
-
 void Phaserunner::stopMotor()
 {
 	setSpeedCommand(0);
 	setRemoteState(1);
 }
+void Phaserunner::setSpeed(float speed)
+{
+	//TODO Filter input and check motor state
+	setSpeedCommand(speed);
+}
+MotorFaults Phaserunner::getMotorFaults()
+{
+	return mMotorFaults;
+}
+ControllerFaults Phaserunner::getControllerFaults()
+{
+	return mControllerFaults;
+}
+void Phaserunner::clearFaults()
+{
+	/*
+	 *  @508
+	 *  Clear faults register
+	 *  	Write non zero value clear faults
+	 */
 
+	mRegisters->set(508, 1);
+}
+
+void Phaserunner::tick(unsigned long dt)
+{
+	TimerHeartbeat.tick(dt);
+}
 void Phaserunner::process()
 {
+
+	if(TimerHeartbeat.triggered())
+	{
+		heartbeat();
+	}
+
 	// Send all pending write request
 	std::vector<Register> pendingRegisters;
 	bool needTransmit = false;
@@ -111,11 +142,24 @@ void Phaserunner::process()
 //			Serial.print("\t@");
 //			Serial.println(r.address);
 //		}
+		for(const auto& r : answer->registers)
+		{
+			switch(r.address)
+			{
+				case 258:
+					mMotorFaults.faults = r.value;
+					break;
+
+				case 299:
+					mControllerFaults.faults = r.value;
+					break;
+			}
+		}
+
 		delete answer;
 	}
 
 }
-
 
 bool Phaserunner::instantRequest(uint8_t add, uint16_t val)
 {
@@ -123,13 +167,39 @@ bool Phaserunner::instantRequest(uint8_t add, uint16_t val)
 	packet->push(Register(add, 0, val));
 	return ModbusHandler->request(packet);
 }
+bool Phaserunner::setCommunicationTimeout(uint16_t timeout)
+{
+	/*
+	 *  @32 + @49
+	 *  Max time before timeout
+	 *  	Value in ms
+	 */
+	mRegisters->set(32, timeout);
+	if(timeout == 0)
+		mRegisters->set(49, 0);
+	else
+		mRegisters->set(49, timeout);
 
+	return true;
+}
+void Phaserunner::heartbeat()
+{
+	if(mRegisters->get(493).value == 2)
+	{
+		setCurrentsLimits(mMotorCommands.MotoringCurrentLimit, mMotorCommands.BrakingCurrentLimit);
+		setSpeedCommand(mMotorCommands.Speed);
+		setTorqueCommand(mMotorCommands.Torque);
+		setRemoteState(mMotorCommands.State);
+	}
+
+	setCommunicationTimeout(1000);
+	readControllerFaults();
+	readMotorFaults();
+}
 bool Phaserunner::readAllParameters()
 {
 	return true;
 }
-
-
 void Phaserunner::readMotorFaults()
 {
 	/*
@@ -138,7 +208,6 @@ void Phaserunner::readMotorFaults()
 	 */
 	mRegisters->read(258);
 }
-
 void Phaserunner::readControllerFaults()
 {
 	/*
@@ -147,7 +216,6 @@ void Phaserunner::readControllerFaults()
 	 */
 	mRegisters->read(299);
 }
-
 bool Phaserunner::setControlSource(uint8_t source)
 {
 	/*
@@ -162,7 +230,6 @@ bool Phaserunner::setControlSource(uint8_t source)
 
 	return true;
 }
-
 bool Phaserunner::setSpeedRegulatorMode(uint8_t mode)
 {
 	/*
@@ -188,6 +255,8 @@ bool Phaserunner::setSpeedCommand(float speed)
 	if(speed > 100.0)
 		return false;
 
+	mMotorCommands.Speed = speed;
+
 	mRegisters->set(490, 4095*(speed/100.0));
 	return true;
 }
@@ -202,6 +271,9 @@ bool Phaserunner::setCurrentsLimits(float motor, float brake)
 
 	if(motor > 100.0 || brake > 100.0)
 		return false;
+
+	mMotorCommands.MotoringCurrentLimit= motor;
+	mMotorCommands.BrakingCurrentLimit = brake;
 
 	mRegisters->set(491, 4096*(motor/100.0));
 	mRegisters->set(492, 4096*(brake/100.0));
@@ -219,11 +291,12 @@ bool Phaserunner::setRemoteState(uint8_t state)
 	if(state < 0 || state > 2)
 		return false;
 
+	mMotorCommands.State = state;
+
 	mRegisters->set(493, state);
 	return true;
 
 }
-
 bool Phaserunner::setTorqueCommand(float torque)
 {
 	/* CRITICAL
@@ -235,7 +308,20 @@ bool Phaserunner::setTorqueCommand(float torque)
 	if(torque > 100.0)
 		return false;
 
+	mMotorCommands.Torque = torque;
+
 	mRegisters->set(494, 4096*(torque/100.0));
 	return true;
 
 }
+bool Phaserunner::setRemoteThottleVoltage(uint16_t voltage)
+{
+	/*
+	 *  @495
+	 *  Value is voltage of a remot throttle command
+	 */
+
+	mRegisters->set(495, voltage);
+	return true;
+}
+
